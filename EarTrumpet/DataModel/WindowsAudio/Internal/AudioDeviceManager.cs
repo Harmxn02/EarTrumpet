@@ -14,6 +14,12 @@ namespace EarTrumpet.DataModel.WindowsAudio.Internal
 {
     class AudioDeviceManager : IMMNotificationClient, IAudioDeviceManager, IAudioDeviceManagerWindowsAudio
     {
+        private static readonly string[] PlaybackDeviceNameExclusions = new[]
+        {
+            // Add playback name fragments here to hide matching devices from the UI.
+            "CABLE",
+        };
+
         public event EventHandler<IAudioDevice> DefaultChanged;
         public event EventHandler Loaded;
 
@@ -188,15 +194,17 @@ namespace EarTrumpet.DataModel.WindowsAudio.Internal
                         device.GetState() == DeviceState.ACTIVE)
                     {
                         var newDevice = new AudioDevice(this, device, _dispatcher);
-
-                        _dispatcher.Invoke((Action)(() =>
+                        if (ShouldIncludeDevice(newDevice))
                         {
-                            // We must check again on the UI thread to avoid adding a duplicate device.
-                            if (!TryFind(pwstrDeviceId, out IAudioDevice unused1))
+                            _dispatcher.Invoke((Action)(() =>
                             {
-                                Add(newDevice);
-                            }
-                        }));
+                                // We must check again on the UI thread to avoid adding a duplicate device.
+                                if (!TryFind(pwstrDeviceId, out IAudioDevice unused1))
+                                {
+                                    Add(newDevice);
+                                }
+                            }));
+                        }
                     }
                 }
                 catch (Exception ex)
@@ -304,6 +312,22 @@ namespace EarTrumpet.DataModel.WindowsAudio.Internal
             {
                 _devices.Add(device);
             }
+        }
+
+        private bool ShouldIncludeDevice(IAudioDevice device)
+        {
+            if (_kind != AudioDeviceKind.Playback)
+            {
+                return true;
+            }
+
+            if (string.IsNullOrWhiteSpace(device?.DisplayName))
+            {
+                return true;
+            }
+
+            return !PlaybackDeviceNameExclusions.Any(name =>
+                device.DisplayName.IndexOf(name, StringComparison.OrdinalIgnoreCase) >= 0);
         }
 
         private void Remove(IAudioDevice device)

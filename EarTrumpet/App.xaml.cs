@@ -98,9 +98,6 @@ namespace EarTrumpet
         {
             AddonManager.Load(shouldLoadInternalAddons: HasDevIdentity);
             Exit += (_, __) => AddonManager.Shutdown();
-#if DEBUG
-            DebugHelpers.Add();
-#endif
             _mixerWindow = new WindowHolder(CreateMixerExperience);
             _settingsWindow = new WindowHolder(CreateSettingsExperience);
 
